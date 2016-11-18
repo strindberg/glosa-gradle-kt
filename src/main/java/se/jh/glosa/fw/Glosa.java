@@ -14,11 +14,8 @@
 
 package se.jh.glosa.fw;
 
-import java.awt.Image;
-import java.awt.Toolkit;
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.util.List;
 import java.util.prefs.Preferences;
 
@@ -27,121 +24,106 @@ import se.jh.glosa.vo.IWord;
 
 public class Glosa {
 
-    /** Property specifying the last directory we chose a file from. */
-    private static final String FILE_DIR_PROPERTY = "pepes.file.dir";
+	/** Property specifying the last directory we chose a file from. */
+	private static final String FILE_DIR_PROPERTY = "pepes.file.dir";
 
-    /** Property specifying the last file we used. */
-    private static final String FILE_FILE_PROPERTY = "pepes.file.file";
+	/** Property specifying the last file we used. */
+	private static final String FILE_FILE_PROPERTY = "pepes.file.file";
 
-    private static final String DEFAULT_FILE_DIR = System.getProperty("user.home");
+	private static final String DEFAULT_FILE_DIR = System.getProperty("user.home");
 
-    private static final String ICON_FILE = "icons/face2.png";
+	private static final String ICON_FILE = "icons/face2.png";
 
-    private String fileDir = DEFAULT_FILE_DIR;
+	private String fileDir = DEFAULT_FILE_DIR;
 
-    private String fileFile = "";
+	private String fileFile = "";
 
-    public final Image appIcon;
+	private WordFileReader fileReader;
 
-    private WordFileReader fileReader;
+	private List<IWord> words;
 
-    private List<IWord> words;
+	private IWordChooser wordChooser;
 
-    private IWordChooser wordChooser;
+	public Glosa() {
+		readProperties();
+	}
 
-    public Glosa(String argFileName) {
-        URL url = this.getClass().getClassLoader().getResource(ICON_FILE);
-        appIcon = Toolkit.getDefaultToolkit().getImage(url);
+	public IWord getNewWord(boolean inverse) {
+		return wordChooser.nextIWord(inverse);
+	}
 
-        readProperties();
-    }
+	public int noToChooseAmong() {
+		return wordChooser.noToChooseAmong();
+	}
 
-    public IWord getNewWord(boolean inverse) {
-        return wordChooser.nextIWord(inverse);
-    }
+	public void quit(boolean save) throws IOException {
+		if (save) {
+			fileReader.saveHistory(words);
+			writeProperties();
+		}
+		System.exit(0);
+	}
 
-    public int noToChooseAmong() {
-        return wordChooser.noToChooseAmong();
-    }
+	public String newFile(File file) throws IOException {
+		if (fileReader != null && words != null) {
+			fileReader.saveHistory(words);
+		}
 
-    public void quit(boolean save) throws IOException {
-        if (save) {
-            fileReader.saveHistory(words);
-            writeProperties();
-        }
-        System.exit(0);
-    }
+		fileReader = new WordFileReader(file.getPath());
+		words = fileReader.getWords();
+		wordChooser = new SuccessiveRandomWordChooser(words);
+		if (file.getParentFile() != null) {
+			fileDir = file.getParentFile().getAbsolutePath();
+			fileFile = file.getName();
+		}
 
-    public String newFile(File file) throws IOException {
-        if (fileReader != null && words != null) {
-            fileReader.saveHistory(words);
-        }
+		return file.getName();
+	}
 
-        fileReader = new WordFileReader(file.getPath());
-        words = fileReader.getWords();
-        wordChooser = new SuccessiveRandomWordChooser(words);
-        if (file.getParentFile() != null) {
-            fileDir = file.getParentFile().getAbsolutePath();
-            fileFile = file.getName();
-        }
+	/**
+	 * Read preferences from storage.
+	 */
+	private void readProperties() {
+		Preferences prefs = Preferences.userNodeForPackage(this.getClass());
+		fileDir = prefs.get(FILE_DIR_PROPERTY, DEFAULT_FILE_DIR);
+		fileFile = prefs.get(FILE_FILE_PROPERTY, "");
+	}
 
-        return file.getName();
-    }
+	/**
+	 * Write preferences to storage.
+	 */
+	private void writeProperties() {
+		if (fileDir != null) {
+			Preferences prefs = Preferences.userNodeForPackage(this.getClass());
+			prefs.put(FILE_DIR_PROPERTY, fileDir);
+			prefs.put(FILE_FILE_PROPERTY, fileFile);
+		}
+	}
 
-    /**
-     * Read preferences from storage.
-     */
-    private void readProperties() {
-        Preferences prefs = Preferences.userNodeForPackage(this.getClass());
-        fileDir = prefs.get(FILE_DIR_PROPERTY, DEFAULT_FILE_DIR);
-        fileFile= prefs.get(FILE_FILE_PROPERTY, "");
-    }
+	public static void main(String[] args) {
+		boolean inverse = false;
+		boolean oneShot = false;
+		String fileName = null;
 
-    /**
-     * Write preferences to storage.
-     */
-    private void writeProperties() {
-        if (fileDir != null) {
-            Preferences prefs = Preferences.userNodeForPackage(this.getClass());
-            prefs.put(FILE_DIR_PROPERTY, fileDir);
-            prefs.put(FILE_FILE_PROPERTY, fileFile);
-        }
-    }
+		for (String arg : args) {
+			if (arg.equalsIgnoreCase("-i")) {
+				inverse = true;
+			} else if (arg.equalsIgnoreCase("-o")) {
+				oneShot = true;
+			} else {
+				fileName = arg;
+			}
+		}
 
-    public static void main(String[] args) {
-        boolean inverse = false;
-        boolean gui = true;
-        boolean oneShot = false;
-        String fileName = null;
+		Glosa glosa = new Glosa();
 
-        for (String arg : args) {
-            if (arg.equalsIgnoreCase("-i")) {
-                inverse = true;
-            } else if (arg.equalsIgnoreCase("-t")) {
-                gui = false;
-            } else if (arg.equalsIgnoreCase("-o")) {
-                oneShot = true;
-            } else {
-                fileName = arg;
-            }
-        }
+		if (fileName == null) {
+			System.out.println("Usage: glosa <-i> <-o> [ordfil]");
+			System.exit(1);
+		}
 
-        Glosa glosa = new Glosa(fileName);
-
-        if (fileName == null) {
-            System.out.println("Usage: Glosa <-i> <-t> <-o> [ordfil]");
-            System.exit(1);
-        }
-        TextController controller = new TextController(glosa, fileName, inverse);
-        controller.go(oneShot);
-    }
-
-    public String getFileDir() {
-        return fileDir;
-    }
-
-    public String getFileFile() {
-        return fileFile;
-    }
+		TextController controller = new TextController(glosa, fileName, inverse);
+		controller.go(oneShot);
+	}
 
 }
