@@ -9,10 +9,10 @@ configure<ApplicationPluginConvention> {
     mainClassName = "se.jh.glosa.fw.Glosa"
 }
 
-// configure<JavaPluginConvention> {
-//     sourceCompatibility = VERSION_1_8
-//     targetCompatibility = VERSION_1_8
-// }
+configure<JavaPluginConvention> {
+     sourceCompatibility = VERSION_1_8
+     targetCompatibility = VERSION_1_8
+}
 
 repositories {
     jcenter()
